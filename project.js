@@ -22,6 +22,8 @@ export class PhongPong extends Scene {
         this.materials = {
            yellow: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: 1, color: hex_color("#FFFF00")}),
            red: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FF0000")}),
+           green: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#00FF00")}),
+           blue: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#0000FF")}),
            background: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFFFF")})
         }
 
@@ -32,6 +34,10 @@ export class PhongPong extends Scene {
         this.racket2 = Mat4.identity().times(Mat4.translation(12, 0, 0))
         this.ball = Mat4.identity()
         this.background = Mat4.identity().times(Mat4.scale(20, 20, 1)).times(Mat4.translation(0, 0, -5))
+        this.left = Mat4.identity().times(Mat4.translation(-14.5, 0, 0)).times(Mat4.scale(1, 20, 20))
+        this.right = Mat4.identity().times(Mat4.translation(14.5, 0, 0)).times(Mat4.scale(1, 20, 20))
+        this.top = Mat4.identity().times(Mat4.translation(0, 8.5, 0)).times(Mat4.scale(30, 1, 20))
+        this.bottom = Mat4.identity().times(Mat4.translation(0, -8.5, 0)).times(Mat4.scale(30, 1, 20))
 
         // Racket movement controls
         this.a = 0.0005;
@@ -44,6 +50,9 @@ export class PhongPong extends Scene {
         this.player1_down = false;
         this.player2_up = false;
         this.player2_down = false;
+
+        // Racket sizes
+        this.racket_size = 2.5;
 
         this.ball_angle = Math.random() * 2 * Math.PI;
     }
@@ -93,7 +102,7 @@ export class PhongPong extends Scene {
             racket1_transform[1][3] = -5;
             this.player1_v = 0;
         }
-        racket1_transform = racket1_transform.times(Mat4.scale(1, 2.5, 1));
+        racket1_transform = racket1_transform.times(Mat4.scale(1, this.racket_size, 1));
 
         // Max velocity when key is pressed
         if (this.player2_up) {
@@ -119,19 +128,40 @@ export class PhongPong extends Scene {
             racket2_transform[1][3] = -5;
             this.player2_v = 0;
         }
-        racket2_transform = racket2_transform.times(Mat4.scale(1, 2.5, 1));
+        racket2_transform = racket2_transform.times(Mat4.scale(1, this.racket_size, 1));
 
         // Ball movement
         let ball_direction = [Math.cos(this.ball_angle), Math.sin(this.ball_angle)]
         let ball_transform = this.ball;
         ball_transform = ball_transform.times(Mat4.translation(0.05*ball_direction[0], 0.05*ball_direction[1], 0))
 
-        // Collision detection
+        // Collision detection preparation
         let ball_center = vec3(ball_transform[0][3], ball_transform[1][3], ball_transform[2][3]);
-        let racket1_AABB = getAABB(vec3(1, 2.5, 1), vec3(racket1_transform[0][3], racket1_transform[1][3], racket1_transform[2][3]));
-        let racket2_AABB = getAABB(vec3(1, 2.5, 1), vec3(racket2_transform[0][3], racket2_transform[1][3], racket2_transform[2][3]));
-        if (intersectSphereAABB(racket1_AABB, ball_center, 0.5) || intersectSphereAABB(racket2_AABB, ball_center, 0.5)) {
+        let racket1_AABB = getAABB(vec3(1, this.racket_size, 1), vec3(racket1_transform[0][3], racket1_transform[1][3], racket1_transform[2][3]));
+        let racket2_AABB = getAABB(vec3(1, this.racket_size, 1), vec3(racket2_transform[0][3], racket2_transform[1][3], racket2_transform[2][3]));
+        let background_AABB = getAABB(vec3(20, 20, 1), vec3(this.background[0][3], this.background[1][3], this.background[2][3]));
+        let left_AABB = getAABB(vec3(1, 20, 20), vec3(this.left[0][3], this.left[1][3], this.left[2][3]));
+        let right_AABB = getAABB(vec3(1, 20, 20), vec3(this.right[0][3], this.right[1][3], this.right[2][3]));
+        let top_AABB = getAABB(vec3(30, 1, 20), vec3(this.top[0][3], this.top[1][3], this.top[2][3]));
+        let bottom_AABB = getAABB(vec3(30, 1, 20), vec3(this.bottom[0][3], this.bottom[1][3], this.bottom[2][3]));
+
+        // Racket collision
+        if (intersectSphereAABB(racket1_AABB, ball_center, 1.0) || intersectSphereAABB(racket2_AABB, ball_center, 1.0)) {
             this.ball_angle = Math.PI - this.ball_angle;
+        }
+        // Top and bottom collision
+        if (intersectSphereAABB(top_AABB, ball_center, 1.0) || intersectSphereAABB(bottom_AABB, ball_center, 1.0)) {
+            this.ball_angle = -this.ball_angle;
+        }
+        
+        // Left collision
+        if (intersectSphereAABB(left_AABB, ball_center, 1.0)) {
+            console.log("Player 2 wins!")
+            
+        }
+        // Right collision
+        if (intersectSphereAABB(right_AABB, ball_center, 1.0)) {
+            console.log("Player 1 wins!")
         }
 
         // Add lights to the scene
@@ -141,18 +171,23 @@ export class PhongPong extends Scene {
         ];
 
         // Player racket rendering
-        this.shapes.racket.draw(context, program_state, racket1_transform, this.materials.yellow);
-        this.shapes.racket.draw(context, program_state, racket2_transform, this.materials.yellow);
+        this.shapes.racket.draw(context, program_state, racket1_transform, this.materials.green);
+        this.shapes.racket.draw(context, program_state, racket2_transform, this.materials.red);
 
         // Ball rendering
-        this.shapes.ball.draw(context, program_state, ball_transform, this.materials.red);
+        this.shapes.ball.draw(context, program_state, ball_transform, this.materials.yellow);
 
         // Background rendering
         this.shapes.background.draw(context, program_state, this.background, this.materials.background);
+        this.shapes.background.draw(context, program_state, this.left, this.materials.background);
+        this.shapes.background.draw(context, program_state, this.right, this.materials.background);
+        this.shapes.background.draw(context, program_state, this.top, this.materials.background);
+        this.shapes.background.draw(context, program_state, this.bottom, this.materials.background);
+
 
         // Update saved transforms
-        this.racket1 = racket1_transform.times(Mat4.scale(1, 0.4, 1));
-        this.racket2 = racket2_transform.times(Mat4.scale(1, 0.4, 1));
+        this.racket1 = racket1_transform.times(Mat4.scale(1, 1/this.racket_size, 1));
+        this.racket2 = racket2_transform.times(Mat4.scale(1, 1/this.racket_size, 1));
         this.ball = ball_transform;
 
         // Reset key presses
