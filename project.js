@@ -4,6 +4,8 @@ const {
     Vector, Vector3, vec, vec3, vec4, color, hex_color, Shader, Matrix, Mat4, Light, Shape, Material, Scene,
 } = tiny;
 
+import {getAABB, intersectSphereAABB} from './utils.js';
+
 export class PhongPong extends Scene {
     constructor() {
         // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
@@ -32,8 +34,8 @@ export class PhongPong extends Scene {
         this.background = Mat4.identity().times(Mat4.scale(20, 20, 1)).times(Mat4.translation(0, 0, -5))
 
         // Racket movement controls
-        this.a = 0.0005 
-        this.max_v = 0.0625
+        this.a = 0.0005;
+        this.max_v = 0.0625;
         this.player1_v = 0;
         this.player2_v = 0;
 
@@ -69,7 +71,7 @@ export class PhongPong extends Scene {
 
         // Max velocity when key is pressed
         if (this.player1_up) {
-            this.player1_v = this.max_v
+            this.player1_v = this.max_v;
         }
         if (this.player1_down) {
             this.player1_v = -this.max_v;
@@ -84,18 +86,18 @@ export class PhongPong extends Scene {
         // Move racket 1
         let racket1_transform = this.racket1.times(Mat4.translation(0, this.player1_v, 0))
         if (racket1_transform[1][3] >= 5) {
-            racket1_transform[1][3] = 5
-            this.player1_v = 0
+            racket1_transform[1][3] = 5;
+            this.player1_v = 0;
         }
         if (racket1_transform[1][3] <= -5) {
-            racket1_transform[1][3] = -5
-            this.player1_v = 0
+            racket1_transform[1][3] = -5;
+            this.player1_v = 0;
         }
-        racket1_transform = racket1_transform.times(Mat4.scale(1, 2.5, 1))
+        racket1_transform = racket1_transform.times(Mat4.scale(1, 2.5, 1));
 
         // Max velocity when key is pressed
         if (this.player2_up) {
-            this.player2_v = this.max_v
+            this.player2_v = this.max_v;
         }
         if (this.player2_down) {
             this.player2_v = -this.max_v;
@@ -110,19 +112,27 @@ export class PhongPong extends Scene {
         // Move racket 2
         let racket2_transform = this.racket2.times(Mat4.translation(0, this.player2_v, 0))
         if (racket2_transform[1][3] >= 5) {
-            racket2_transform[1][3] = 5
-            this.player2_v = 0
+            racket2_transform[1][3] = 5;
+            this.player2_v = 0;
         }
         if (racket2_transform[1][3] <= -5) {
-            racket2_transform[1][3] = -5
-            this.player2_v = 0
+            racket2_transform[1][3] = -5;
+            this.player2_v = 0;
         }
-        racket2_transform = racket2_transform.times(Mat4.scale(1, 2.5, 1))
+        racket2_transform = racket2_transform.times(Mat4.scale(1, 2.5, 1));
 
         // Ball movement
         let ball_direction = [Math.cos(this.ball_angle), Math.sin(this.ball_angle)]
         let ball_transform = this.ball;
         ball_transform = ball_transform.times(Mat4.translation(0.05*ball_direction[0], 0.05*ball_direction[1], 0))
+
+        // Collision detection
+        let ball_center = vec3(ball_transform[0][3], ball_transform[1][3], ball_transform[2][3]);
+        let racket1_AABB = getAABB(vec3(1, 2.5, 1), vec3(racket1_transform[0][3], racket1_transform[1][3], racket1_transform[2][3]));
+        let racket2_AABB = getAABB(vec3(1, 2.5, 1), vec3(racket2_transform[0][3], racket2_transform[1][3], racket2_transform[2][3]));
+        if (intersectSphereAABB(racket1_AABB, ball_center, 0.5) || intersectSphereAABB(racket2_AABB, ball_center, 0.5)) {
+            this.ball_angle = Math.PI - this.ball_angle;
+        }
 
         // Add lights to the scene
         program_state.lights = [
@@ -143,7 +153,7 @@ export class PhongPong extends Scene {
         // Update saved transforms
         this.racket1 = racket1_transform.times(Mat4.scale(1, 0.4, 1));
         this.racket2 = racket2_transform.times(Mat4.scale(1, 0.4, 1));
-        this.ball = ball_transform
+        this.ball = ball_transform;
 
         // Reset key presses
         this.player1_up = false;
