@@ -13,19 +13,29 @@ export class PhongPong extends Scene {
         this.shapes = {
             racket: new defs.Cube(),
             ball: new defs.Subdivision_Sphere(4),
+            background: new defs.Cube()
         };
 
         // *** Materials
         this.materials = {
-           yellow: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFF00")}),
-           red: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FF0000")})
+           yellow: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: 1, color: hex_color("#FFFF00")}),
+           red: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FF0000")}),
+           background: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFFFF")})
         }
 
         this.initial_camera_location = Mat4.look_at(vec3(0, 0, 20), vec3(0, 0, 0), vec3(0, 1, 0));
 
+        // Initial scene positions
         this.racket1 = Mat4.identity().times(Mat4.translation(-12, 0, 0))
         this.racket2 = Mat4.identity().times(Mat4.translation(12, 0, 0))
         this.ball = Mat4.identity()
+        this.background = Mat4.identity().times(Mat4.scale(20, 20, 1)).times(Mat4.translation(0, 0, -5))
+
+        // Racket movement controls
+        this.a = 0.0005 
+        this.max_v = 0.0625
+        this.player1_v = 0;
+        this.player2_v = 0;
 
         // Key controls
         this.player1_up = false;
@@ -57,25 +67,68 @@ export class PhongPong extends Scene {
 
         const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
 
-        // Add a light to the scene
-        program_state.lights = [new Light(vec4(10, 10, 10, 1), color(1, 1, 1, 1), 100000)];
-
-        // First racket movement
-        let racket1_transform = this.racket1;
-        if (racket1_transform[1][3] <= 5 && this.player1_up) racket1_transform = racket1_transform.times(Mat4.translation(0, 0.5, 0))
-        if (racket1_transform[1][3] >= -5 && this.player1_down) racket1_transform = racket1_transform.times(Mat4.translation(0, -0.5, 0))
+        // Max velocity when key is pressed
+        if (this.player1_up) {
+            this.player1_v = this.max_v
+        }
+        if (this.player1_down) {
+            this.player1_v = -this.max_v;
+        }
+        // Velocity reduction (this reduces it to 0 if key stops being pressed)
+        if (this.player1_v > 0) {
+            this.player1_v = Math.max(0, this.player1_v - this.a);
+        }
+        if (this.player1_v < 0) {
+            this.player1_v = Math.min(0, this.player1_v + this.a);
+        }
+        // Move racket 1
+        let racket1_transform = this.racket1.times(Mat4.translation(0, this.player1_v, 0))
+        if (racket1_transform[1][3] >= 5) {
+            racket1_transform[1][3] = 5
+            this.player1_v = 0
+        }
+        if (racket1_transform[1][3] <= -5) {
+            racket1_transform[1][3] = -5
+            this.player1_v = 0
+        }
         racket1_transform = racket1_transform.times(Mat4.scale(1, 2.5, 1))
 
-        // Second racket movement
-        let racket2_transform = this.racket2;
-        if (racket2_transform[1][3] <= 5 && this.player2_up) racket2_transform = racket2_transform.times(Mat4.translation(0, 0.5, 0))
-        if (racket2_transform[1][3] >= -5 && this.player2_down) racket2_transform = racket2_transform.times(Mat4.translation(0, -0.5, 0))        
+        // Max velocity when key is pressed
+        if (this.player2_up) {
+            this.player2_v = this.max_v
+        }
+        if (this.player2_down) {
+            this.player2_v = -this.max_v;
+        }
+        // Velocity reduction (this reduces it to 0 if key stops being pressed)
+        if (this.player2_v > 0) {
+            this.player2_v = Math.max(0, this.player2_v - this.a);
+        }
+        if (this.player2_v < 0) {
+            this.player2_v = Math.min(0, this.player2_v + this.a);
+        }
+        // Move racket 2
+        let racket2_transform = this.racket2.times(Mat4.translation(0, this.player2_v, 0))
+        if (racket2_transform[1][3] >= 5) {
+            racket2_transform[1][3] = 5
+            this.player2_v = 0
+        }
+        if (racket2_transform[1][3] <= -5) {
+            racket2_transform[1][3] = -5
+            this.player2_v = 0
+        }
         racket2_transform = racket2_transform.times(Mat4.scale(1, 2.5, 1))
 
         // Ball movement
-        let ball_direction = [0.05*Math.cos(this.ball_angle), 0.05*Math.sin(this.ball_angle)]
+        let ball_direction = [Math.cos(this.ball_angle), Math.sin(this.ball_angle)]
         let ball_transform = this.ball;
-        ball_transform = ball_transform.times(Mat4.translation(ball_direction[0], ball_direction[1], 0))
+        ball_transform = ball_transform.times(Mat4.translation(0.05*ball_direction[0], 0.05*ball_direction[1], 0))
+
+        // Add lights to the scene
+        program_state.lights = [
+            new Light(vec4(0, 15, -10, 1), color(1, 1, 1, 1), 1000),
+            new Light(vec4(ball_transform[0][3], ball_transform[1][3], 1, 1), color(1, 0, 0, 1), 100)
+        ];
 
         // Player racket rendering
         this.shapes.racket.draw(context, program_state, racket1_transform, this.materials.yellow);
@@ -83,6 +136,9 @@ export class PhongPong extends Scene {
 
         // Ball rendering
         this.shapes.ball.draw(context, program_state, ball_transform, this.materials.red);
+
+        // Background rendering
+        this.shapes.background.draw(context, program_state, this.background, this.materials.background);
 
         // Update saved transforms
         this.racket1 = racket1_transform.times(Mat4.scale(1, 0.4, 1));
