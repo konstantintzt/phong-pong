@@ -62,10 +62,11 @@ export class PhongPong extends Scene {
         this.bottom = Mat4.identity().times(Mat4.translation(0, -8.5, 0)).times(Mat4.scale(30, 1, 20))
 
         // Racket movement controls
-        this.a = 0.0005;
+        this.a = 1.05;
         this.max_v = 0.0625;
         this.player1_v = 0;
         this.player2_v = 0;
+        this.d = 0.95;
 
         // Key controls
         this.player1_up = false;
@@ -87,12 +88,36 @@ export class PhongPong extends Scene {
         // Draw the scene's buttons, setup their actions and keyboard shortcuts, and monitor live measurements.
         this.key_triggered_button("Pause", ["Escape"], () => this.attached = () => this.initial_camera_location);
         this.new_line();
-        this.key_triggered_button("Player 1 UP", ["w"], () => this.player1_up = true);
-        this.key_triggered_button("Player 2 UP", ["o"], () => this.player2_up = true);
+        this.key_triggered_button("Player 1 UP", ["w"], () => {
+            this.player1_up = true;
+            this.player1_down = false;
+        }, undefined, () => {
+            this.player1_up = false
+            this.player1_down = false;
+        });
+        this.key_triggered_button("Player 2 UP", ["o"], () => 
+        {
+            this.player2_up = true;
+            this.player2_down = false;
+        }, undefined, () => {
+            this.player2_up = false
+            this.player2_down = false;
+        });
         this.new_line();
-        this.key_triggered_button("Player 1 DOWN", ["s"], () => this.player1_down = true);
-        this.key_triggered_button("Player 2 DOWN", ["l"], () => this.player2_down = true);
-        this.new_line();
+        this.key_triggered_button("Player 1 DOWN", ["s"], () => {
+            this.player1_down = true;
+            this.player1_up = false;
+        }, undefined, () => {
+            this.player1_down = false;
+            this.player1_up = false;
+        });
+        this.key_triggered_button("Player 2 DOWN", ["l"], () => {
+            this.player2_down = true;
+            this.player2_up = false;
+        }, undefined, () => {
+            this.player2_down = false;
+            this.player2_up = false;
+        });
     }
 
     display(context, program_state) {
@@ -104,20 +129,36 @@ export class PhongPong extends Scene {
 
         const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
 
-        // Max velocity when key is pressed
+        // Racket 1 movement
+        this.player1_v *= this.d;
         if (this.player1_up) {
-            this.player1_v = this.max_v;
+            this.player1_v += this.a;
+            if (this.player1_v > this.max_v) {
+                this.player1_v = this.max_v;
+            }
         }
-        if (this.player1_down) {
-            this.player1_v = -this.max_v;
+        else if (this.player1_down) {
+            this.player1_v -= this.a;
+            if (this.player1_v < -this.max_v) {
+                this.player1_v = -this.max_v;
+            }
         }
-        // Velocity reduction (this reduces it to 0 if key stops being pressed)
-        if (this.player1_v > 0) {
-            this.player1_v = Math.max(0, this.player1_v - this.a);
+
+        // Racket 2 movement
+        this.player2_v *= this.d;
+        if (this.player2_up) {
+            this.player2_v += this.a;
+            if (this.player2_v > this.max_v) {
+                this.player2_v = this.max_v;
+            }
         }
-        if (this.player1_v < 0) {
-            this.player1_v = Math.min(0, this.player1_v + this.a);
+        else if (this.player2_down) {
+            this.player2_v -= this.a;
+            if (this.player2_v < -this.max_v) {
+                this.player2_v = -this.max_v;
+            }
         }
+
         // Move racket 1
         let racket1_transform = this.racket1.times(Mat4.translation(0, this.player1_v, 0))
         if (racket1_transform[1][3] >= 7.5 - this.racket_size) {
@@ -130,20 +171,6 @@ export class PhongPong extends Scene {
         }
         racket1_transform = racket1_transform.times(Mat4.scale(1, this.racket_size, 1));
 
-        // Max velocity when key is pressed
-        if (this.player2_up) {
-            this.player2_v = this.max_v;
-        }
-        if (this.player2_down) {
-            this.player2_v = -this.max_v;
-        }
-        // Velocity reduction (this reduces it to 0 if key stops being pressed)
-        if (this.player2_v > 0) {
-            this.player2_v = Math.max(0, this.player2_v - this.a);
-        }
-        if (this.player2_v < 0) {
-            this.player2_v = Math.min(0, this.player2_v + this.a);
-        }
         // Move racket 2
         let racket2_transform = this.racket2.times(Mat4.translation(0, this.player2_v, 0))
         if (racket2_transform[1][3] >= 7.5 - this.racket_size) {
@@ -276,12 +303,6 @@ export class PhongPong extends Scene {
         this.racket1 = racket1_transform.times(Mat4.scale(1, 1/old_racket_size, 1));
         this.racket2 = racket2_transform.times(Mat4.scale(1, 1/old_racket_size, 1));
         this.ball = ball_transform;
-
-        // Reset key presses
-        this.player1_up = false;
-        this.player1_down = false;
-        this.player2_up = false;
-        this.player2_down = false;
     }
 }
 
