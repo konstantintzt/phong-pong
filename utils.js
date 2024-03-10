@@ -36,3 +36,13 @@ export function intersectSphereAABB(AABB, sphereCenter, sphereRadius) {
     return pointInSphere(closestPoint, sphereCenter, sphereRadius);
 
 }
+
+// Function to check if two spheres are colliding
+export function intersectSphereSphere(sphereCenter1, sphereRadius1, sphereCenter2, sphereRadius2) {
+    const dist = Math.sqrt(
+        (sphereCenter1[0] - sphereCenter2[0]) * (sphereCenter1[0] - sphereCenter2[0]) +
+        (sphereCenter1[1] - sphereCenter2[1]) * (sphereCenter1[1] - sphereCenter2[1]) +
+        (sphereCenter1[2] - sphereCenter2[2]) * (sphereCenter1[2] - sphereCenter2[2])
+    );
+    return dist < sphereRadius1 + sphereRadius2;
+}
