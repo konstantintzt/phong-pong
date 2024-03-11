@@ -1,15 +1,15 @@
 import {defs, tiny} from './examples/common.js';
-
 const {
     Vector, Vector3, vec, vec3, vec4, color, hex_color, Shader, Matrix, Mat4, Light, Shape, Material, Scene, Texture,
 } = tiny;
 
 import {getAABB, intersectSphereAABB, intersectSphereSphere} from './utils.js';
 
+const {Cube, Axis_Arrows, Textured_Phong} = defs
+
 export class PhongPong extends Scene {
     constructor() {
         super();
-
         // Shapes
         this.shapes = {
             racket: new defs.Cube(),
@@ -23,7 +23,13 @@ export class PhongPong extends Scene {
             red: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FF0000")}),
             green: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#00FF00")}),
             blue: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#0000FF")}),
+            textured_gold: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: 1, texture: new Texture('assets/gold_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
+            textured_ruby: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: 1, texture: new Texture('assets/ruby_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
+            textured_emerald: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: 1, texture: new Texture('assets/emerald_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
+
             background: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFFFF")}),
+            background1: new Material(new defs.Textured_Phong(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFFFF") , texture: new Texture('assets/NeonBackground.jpg', 'LINEAR_MIPMAP_LINEAR')})
+
         }
 
         // Powerups
@@ -81,6 +87,7 @@ export class PhongPong extends Scene {
         this.ball_angle = Math.random() * 2 * Math.PI;
         this.ball_speed = 0.5;
         this.racket_size = 2.5;
+        this.game_over = false;
 
     }
 
@@ -127,7 +134,6 @@ export class PhongPong extends Scene {
     }
 
     display(context, program_state) {
-
         // Initial camera setup
         program_state.set_camera(this.initial_camera_location);
         program_state.projection_transform = Mat4.perspective(
@@ -135,8 +141,13 @@ export class PhongPong extends Scene {
 
         const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
 
+
         // Racket 1 movement
         if (this.attached !== undefined) { //When paused
+            return;
+        }
+        if (this.game_over) {
+            // Display game over message or perform any other actions needed
             return;
         }
         this.player1_v *= this.d;
@@ -230,11 +241,19 @@ export class PhongPong extends Scene {
 
         // Left collision
         if (intersectSphereAABB(left_AABB, ball_center, 1.0)) {
-            console.log("Player 2 wins!")
+            console.log("Player 2 wins!");
+            this.game_over = true;
+            alert("Player 2 wins!")
+            return;
+
         }
         // Right collision
         if (intersectSphereAABB(right_AABB, ball_center, 1.0)) {
-            console.log("Player 1 wins!")
+            console.log("Player 1 wins!");
+            this.game_over = true;
+            alert("Player 1 wins!")
+            return;
+
         }
 
         // Add lights to the scene
@@ -261,11 +280,12 @@ export class PhongPong extends Scene {
         }
 
         // Player racket rendering
-        this.shapes.racket.draw(context, program_state, racket1_transform, this.materials.green);
-        this.shapes.racket.draw(context, program_state, racket2_transform, this.materials.red);
+        this.shapes.racket.draw(context, program_state, racket1_transform, this.materials.textured_emerald);
+        this.shapes.racket.draw(context, program_state, racket2_transform, this.materials.textured_ruby);
 
         // Ball rendering
-        this.shapes.ball.draw(context, program_state, ball_transform, this.materials.yellow);
+        this.shapes.ball.draw(context, program_state, ball_transform, this.materials.textured_gold);
+        this.shapes.ball.arrays.texture_coord = this.shapes.ball.arrays.position;
 
         this.shapes.background.arrays.texture_coord.forEach((v, i, l) => {
             v[0] = v[0] * 5;

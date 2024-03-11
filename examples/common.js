@@ -56,6 +56,7 @@ const Square = defs.Square =
     }
 
 
+
 const Tetrahedron = defs.Tetrahedron =
     class Tetrahedron extends Shape {
         // **Tetrahedron** demonstrates flat vs smooth shading (a boolean argument selects
