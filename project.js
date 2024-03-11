@@ -5,7 +5,7 @@ const {
 
 import {getAABB, intersectSphereAABB, intersectSphereSphere} from './utils.js';
 
-const {Cube, Axis_Arrows, Textured_Phong} = defs
+const {Cube, Axis_Arrows, Textured_Phong, Normal_Map} = defs
 
 export class PhongPong extends Scene {
     constructor() {
@@ -19,17 +19,23 @@ export class PhongPong extends Scene {
 
         // Materials
         this.materials = {
-            yellow: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: 1, color: hex_color("#FFFF00")}),
+            yellow: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .8, color: hex_color("#FFFF00")}),
             red: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FF0000")}),
             green: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#00FF00")}),
             blue: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#0000FF")}),
-            textured_gold: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: 1, texture: new Texture('assets/gold_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
-            textured_ruby: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: 1, texture: new Texture('assets/ruby_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
-            textured_emerald: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: 1, texture: new Texture('assets/emerald_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
+            textured_gold: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: .8, diffusivity: .5, texture: new Texture('assets/gold_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
+            textured_ruby: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: .8, diffusivity: .5, texture: new Texture('assets/ruby_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
+            textured_emerald: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: .8, diffusivity: .5, texture: new Texture('assets/emerald_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
 
             background: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFFFF")}),
-            background1: new Material(new defs.Textured_Phong(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFFFF") , texture: new Texture('assets/NeonBackground.jpg', 'LINEAR_MIPMAP_LINEAR')})
-
+            background1: new Material(new defs.Textured_Phong(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFFFF") , texture: new Texture('assets/NeonBackground.jpg', 'LINEAR_MIPMAP_LINEAR')}),
+            normal_background: new Material(new defs.Normal_Map(),
+                {
+                    ambient: 1, color: hex_color("#000000"),
+                    texture: new Texture('assets/neon.png', 'NEAREST'),
+                    normal_map: new Texture('assets/normal.png', 'NEAREST')
+                }
+            )
         }
 
         // Powerups
@@ -61,15 +67,15 @@ export class PhongPong extends Scene {
         this.racket1 = Mat4.identity().times(Mat4.translation(-12, 0, 0))
         this.racket2 = Mat4.identity().times(Mat4.translation(12, 0, 0))
         this.ball = Mat4.identity()
-        this.background = Mat4.identity().times(Mat4.scale(20, 20, 1)).times(Mat4.translation(0, 0, -5))
+        this.background = Mat4.identity().times(Mat4.scale(20, 20, 1)).times(Mat4.translation(0, 0, -7.5))
         this.left = Mat4.identity().times(Mat4.translation(-14.5, 0, 0)).times(Mat4.scale(1, 20, 20))
         this.right = Mat4.identity().times(Mat4.translation(14.5, 0, 0)).times(Mat4.scale(1, 20, 20))
-        this.top = Mat4.identity().times(Mat4.translation(0, 8.5, 0)).times(Mat4.scale(30, 1, 20))
-        this.bottom = Mat4.identity().times(Mat4.translation(0, -8.5, 0)).times(Mat4.scale(30, 1, 20))
+        this.top = Mat4.identity().times(Mat4.translation(0, 8.5, 0)).times(Mat4.scale(20, 1, 20))
+        this.bottom = Mat4.identity().times(Mat4.translation(0, -8.5, 0)).times(Mat4.scale(20, 1, 20))
 
         // Racket movement controls
-        this.a = 1.05;
-        this.max_v = 0.0625;
+        this.a = 1.2;
+        this.max_v = 0.2;
         this.player1_v = 0;
         this.player2_v = 0;
         this.d = 0.95;
@@ -85,7 +91,7 @@ export class PhongPong extends Scene {
 
         // Game params
         this.ball_angle = Math.random() * 2 * Math.PI;
-        this.ball_speed = 0.5;
+        this.ball_speed = 0.2;
         this.racket_size = 2.5;
         this.game_over = false;
 
@@ -258,8 +264,8 @@ export class PhongPong extends Scene {
 
         // Add lights to the scene
         program_state.lights = [
-            new Light(vec4(0, 15, -10, 1), color(1, 1, 1, 1), 1000),
-            new Light(vec4(ball_transform[0][3], ball_transform[1][3], 1, 1), color(0, 0, 1, 1), 100)
+            new Light(vec4(0, 15, 0, 1), color(1, 1, 1, 1), 1000),
+            new Light(vec4(ball_transform[0][3], ball_transform[1][3], -5, 1), color(0, 0, 1, 1), 100)
         ];
 
         // Powerup generation
@@ -293,11 +299,11 @@ export class PhongPong extends Scene {
         });
 
         // Background rendering
-        this.shapes.background.draw(context, program_state, this.background, this.materials.background);
-        this.shapes.background.draw(context, program_state, this.left, this.materials.background);
-        this.shapes.background.draw(context, program_state, this.right, this.materials.background);
-        this.shapes.background.draw(context, program_state, this.top, this.materials.background);
-        this.shapes.background.draw(context, program_state, this.bottom, this.materials.background);
+        this.shapes.background.draw(context, program_state, this.background, this.materials.normal_background);
+        this.shapes.background.draw(context, program_state, this.left, this.materials.normal_background);
+        this.shapes.background.draw(context, program_state, this.right, this.materials.normal_background);
+        this.shapes.background.draw(context, program_state, this.top, this.materials.normal_background);
+        this.shapes.background.draw(context, program_state, this.bottom, this.materials.normal_background);
 
         // Powerups rendering
         for (let powerup of this.active_powerups) {

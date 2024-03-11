@@ -44,10 +44,11 @@ const Square = defs.Square =
         // to re-use data of the common vertices between triangles.  This makes all the vertex
         // arrays (position, normals, etc) smaller and more cache friendly.
         constructor() {
-            super("position", "normal", "texture_coord");
+            super("position", "normal", "texture_coord", "tangents");
             // Specify the 4 square corner locations, and match those up with normal vectors:
             this.arrays.position = Vector3.cast([-1, -1, 0], [1, -1, 0], [-1, 1, 0], [1, 1, 0]);
             this.arrays.normal = Vector3.cast([0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1]);
+            this.arrays.tangents = Vector3.cast([1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]);
             // Arrange the vertices into a square shape in texture space too:
             this.arrays.texture_coord = Vector.cast([0, 0], [1, 0], [0, 1], [1, 1]);
             // Use two triangles this time, indexing into four distinct vertices:
@@ -142,7 +143,7 @@ const Cube = defs.Cube =
         // out of other Shapes).  A cube inserts six Square strips into its own arrays, using six
         // different matrices as offsets for each square.
         constructor() {
-            super("position", "normal", "texture_coord");
+            super("position", "normal", "texture_coord", "tangents");
             // Loop 3 times (for each axis), and inside loop twice (for opposing cube sides):
             for (let i = 0; i < 3; i++)
                 for (let j = 0; j < 2; j++) {
@@ -779,7 +780,76 @@ const Textured_Phong = defs.Textured_Phong =
         }
     }
 
+const Normal_Map = defs.Normal_Map =
+    class Normal_Map extends Textured_Phong {
 
+        vertex_glsl_code() {
+            // ********* VERTEX SHADER *********
+            return this.shared_glsl_code() + `
+                varying vec2 f_tex_coord;
+                attribute vec3 position, normal, tangents;                            
+                // Position is expressed in object coordinates.
+                attribute vec2 texture_coord;
+                
+                varying mat3 TBN;
+
+                uniform mat4 model_transform;
+                uniform mat4 projection_camera_model_transform;
+        
+                void main(){                                                                   
+                    // The vertex's final resting place (in NDCS):
+                    gl_Position = projection_camera_model_transform * vec4( position, 1.0 );
+                    // The final normal vector in screen space.
+                    N = normalize( mat3( model_transform ) * normal / squared_scale);
+
+                    vec3 a_T = normalize( ( model_transform * vec4( tangents, 0.0 ) ).xyz );
+                    vec3 T = normalize ( a_T - dot(a_T, N) * N );
+                    vec3 B = cross( N, T);
+                    TBN = mat3( T, B, N );
+
+                    vertex_worldspace = ( model_transform * vec4( position, 1.0 ) ).xyz;
+                    // Turn the per-vertex texture coordinate into an interpolated variable.
+                    f_tex_coord = texture_coord;
+
+                  } `;
+        }
+
+        fragment_glsl_code() {
+            return this.shared_glsl_code() + `
+            varying vec2 f_tex_coord;
+
+            uniform sampler2D texture;
+            uniform sampler2D normal_map;
+
+            varying mat3 TBN;
+    
+            void main(){
+                // Sample the texture image in the correct place:
+                vec4 tex_color = texture2D( texture, f_tex_coord );
+                vec3 normal = texture2D( normal_map, f_tex_coord ).xyz * 2.0 - 1.0;
+                normal = normalize ( TBN * normalize( normal ) );
+                if( tex_color.w < .01 ) discard;
+                                                                         // Compute an initial (ambient) color:
+                gl_FragColor = vec4( ( tex_color.xyz + shape_color.xyz ) * ambient, shape_color.w * tex_color.w ); 
+                                                                         // Compute the final color with contributions from lights:
+                gl_FragColor.xyz += phong_model_lights( normal, vertex_worldspace );
+              } `;
+        }
+
+        update_GPU(context, gpu_addresses, gpu_state, model_transform, material) {
+            // update_GPU(): Add a little more to the base class's version of this method.
+            super.update_GPU(context, gpu_addresses, gpu_state, model_transform, material);
+            context.uniform1f(gpu_addresses.dist, material.dist || 0);
+
+            if (material.texture && material.texture.ready && material.normal_map && material.normal_map.ready) {
+                context.uniform1i(gpu_addresses.texture, 0);
+                material.texture.activate(context);
+                context.uniform1i(gpu_addresses.normal_map, 1);
+                material.normal_map.activate(context, 1);
+            }
+        }
+    }
+    
 const Fake_Bump_Map = defs.Fake_Bump_Map =
     class Fake_Bump_Map extends Textured_Phong {
         // **Fake_Bump_Map** Same as Phong_Shader, except adds a line of code to
