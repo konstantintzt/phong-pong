@@ -1,38 +1,57 @@
 import {defs, tiny} from './examples/common.js';
 
 const {
-    Vector, Vector3, vec, vec3, vec4, color, hex_color, Shader, Matrix, Mat4, Light, Shape, Material, Scene,
+    Vector, Vector3, vec, vec3, vec4, color, hex_color, Shader, Matrix, Mat4, Light, Shape, Material, Scene, Texture,
 } = tiny;
 
-import {getAABB, intersectSphereAABB} from './utils.js';
+import {getAABB, intersectSphereAABB, intersectSphereSphere} from './utils.js';
 
 export class PhongPong extends Scene {
     constructor() {
-        // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
         super();
 
-        // At the beginning of our program, load one of each of these shape definitions onto the GPU.
+        // Shapes
         this.shapes = {
             racket: new defs.Cube(),
             ball: new defs.Subdivision_Sphere(4),
-            background: new defs.Cube(),
-            line: new defs.Cube()
+            background: new defs.Cube()
         };
 
-        // *** Materials
+        // Materials
         this.materials = {
             yellow: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: 1, color: hex_color("#FFFF00")}),
             red: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FF0000")}),
             green: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#00FF00")}),
             blue: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#0000FF")}),
             background: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFFFF")}),
-            line: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#000000")})
-
         }
 
-        this.initial_camera_location = Mat4.look_at(vec3(0, 0, 20), vec3(0, 0, 0), vec3(0, 1, 0));
+        // Powerups
+        this.powerups = [
+            {
+                "color": hex_color("#FF0000"),
+                "probability": "0.1",
+                "type": "increase_ball_speed"
+            },
+            {
+                "color": hex_color("#00FF00"),
+                "probability": "0.4",
+                "type": "random_ball_angle"
+            },
+            {
+                "color": hex_color("#0000FF"),
+                "probability": "0.7",
+                "type": "decrease_racket_size"
+            },
+            {
+                "color": hex_color("#FF00FF"),
+                "probability": "1.0",
+                "type": "increase_racket_speed"
+            }
+        ]
 
         // Initial scene positions
+        this.initial_camera_location = Mat4.look_at(vec3(0, 0, 20), vec3(0, 0, 0), vec3(0, 1, 0));
         this.racket1 = Mat4.identity().times(Mat4.translation(-12, 0, 0))
         this.racket2 = Mat4.identity().times(Mat4.translation(12, 0, 0))
         this.ball = Mat4.identity()
@@ -41,14 +60,13 @@ export class PhongPong extends Scene {
         this.right = Mat4.identity().times(Mat4.translation(14.5, 0, 0)).times(Mat4.scale(1, 20, 20))
         this.top = Mat4.identity().times(Mat4.translation(0, 8.5, 0)).times(Mat4.scale(30, 1, 20))
         this.bottom = Mat4.identity().times(Mat4.translation(0, -8.5, 0)).times(Mat4.scale(30, 1, 20))
-        this.middle_line = Mat4.identity().times(Mat4.translation(0, 0, -5)).times(Mat4.scale(0.2, 20, 1)); // Middle line
-
 
         // Racket movement controls
-        this.a = 0.0005;
+        this.a = 1.05;
         this.max_v = 0.0625;
         this.player1_v = 0;
         this.player2_v = 0;
+        this.d = 0.95;
 
         // Key controls
         this.player1_up = false;
@@ -56,10 +74,14 @@ export class PhongPong extends Scene {
         this.player2_up = false;
         this.player2_down = false;
 
-        // Racket sizes
+        // Gameplay changers
+        this.active_powerups = [];
+
+        // Game params
+        this.ball_angle = Math.random() * 2 * Math.PI;
+        this.ball_speed = 0.5;
         this.racket_size = 2.5;
 
-        this.ball_angle = Math.random() * 2 * Math.PI;
     }
 
     make_control_panel() {
@@ -70,14 +92,38 @@ export class PhongPong extends Scene {
             } else {
                 this.attached = true; // Pause animation
             }
-        });        this.new_line();
-        this.key_triggered_button("Player 1 UP", ["w"], () => this.player1_up = true);
-        this.key_triggered_button("Player 2 UP", ["ArrowUp"], () => this.player2_up = true);
+        });
         this.new_line();
-        this.key_triggered_button("Player 1 DOWN", ["s"], () => this.player1_down = true);
-        this.key_triggered_button("Player 2 DOWN", ["ArrowDown"], () => this.player2_down = true);
+        this.key_triggered_button("Player 1 UP", ["w"], () => {
+            this.player1_up = true;
+            this.player1_down = false;
+        }, undefined, () => {
+            this.player1_up = false
+            this.player1_down = false;
+        });
+        this.key_triggered_button("Player 2 UP", ["ArrowUp"], () =>
+        {
+            this.player2_up = true;
+            this.player2_down = false;
+        }, undefined, () => {
+            this.player2_up = false
+            this.player2_down = false;
+        });
         this.new_line();
-
+        this.key_triggered_button("Player 1 DOWN", ["s"], () => {
+            this.player1_down = true;
+            this.player1_up = false;
+        }, undefined, () => {
+            this.player1_down = false;
+            this.player1_up = false;
+        });
+        this.key_triggered_button("Player 2 DOWN", ["ArrowDown"], () => {
+            this.player2_down = true;
+            this.player2_up = false;
+        }, undefined, () => {
+            this.player2_down = false;
+            this.player2_up = false;
+        });
     }
 
     display(context, program_state) {
@@ -88,66 +134,68 @@ export class PhongPong extends Scene {
             Math.PI / 4, context.width / context.height, .1, 1000);
 
         const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
+
+        // Racket 1 movement
         if (this.attached !== undefined) { //When paused
             return;
         }
-        // Max velocity when key is pressed
+        this.player1_v *= this.d;
         if (this.player1_up) {
-            this.player1_v = this.max_v;
+            this.player1_v += this.a;
+            if (this.player1_v > this.max_v) {
+                this.player1_v = this.max_v;
+            }
         }
-        if (this.player1_down) {
-            this.player1_v = -this.max_v;
+        else if (this.player1_down) {
+            this.player1_v -= this.a;
+            if (this.player1_v < -this.max_v) {
+                this.player1_v = -this.max_v;
+            }
         }
-        // Velocity reduction (this reduces it to 0 if key stops being pressed)
-        if (this.player1_v > 0) {
-            this.player1_v = Math.max(0, this.player1_v - this.a);
+
+        // Racket 2 movement
+        this.player2_v *= this.d;
+        if (this.player2_up) {
+            this.player2_v += this.a;
+            if (this.player2_v > this.max_v) {
+                this.player2_v = this.max_v;
+            }
         }
-        if (this.player1_v < 0) {
-            this.player1_v = Math.min(0, this.player1_v + this.a);
+        else if (this.player2_down) {
+            this.player2_v -= this.a;
+            if (this.player2_v < -this.max_v) {
+                this.player2_v = -this.max_v;
+            }
         }
+
         // Move racket 1
         let racket1_transform = this.racket1.times(Mat4.translation(0, this.player1_v, 0))
-        if (racket1_transform[1][3] >= 5) {
-            racket1_transform[1][3] = 5;
+        if (racket1_transform[1][3] >= 7.5 - this.racket_size) {
+            racket1_transform[1][3] = 7.5 - this.racket_size;
             this.player1_v = 0;
         }
-        if (racket1_transform[1][3] <= -5) {
-            racket1_transform[1][3] = -5;
+        if (racket1_transform[1][3] <= -(7.5 - this.racket_size)) {
+            racket1_transform[1][3] = -(7.5 - this.racket_size);
             this.player1_v = 0;
         }
         racket1_transform = racket1_transform.times(Mat4.scale(1, this.racket_size, 1));
 
-        // Max velocity when key is pressed
-        if (this.player2_up) {
-            this.player2_v = this.max_v;
-        }
-        if (this.player2_down) {
-            this.player2_v = -this.max_v;
-        }
-        // Velocity reduction (this reduces it to 0 if key stops being pressed)
-        if (this.player2_v > 0) {
-            this.player2_v = Math.max(0, this.player2_v - this.a);
-        }
-        if (this.player2_v < 0) {
-            this.player2_v = Math.min(0, this.player2_v + this.a);
-        }
         // Move racket 2
         let racket2_transform = this.racket2.times(Mat4.translation(0, this.player2_v, 0))
-        if (racket2_transform[1][3] >= 5) {
-            racket2_transform[1][3] = 5;
+        if (racket2_transform[1][3] >= 7.5 - this.racket_size) {
+            racket2_transform[1][3] = 7.5 - this.racket_size;
             this.player2_v = 0;
         }
-        if (racket2_transform[1][3] <= -5) {
-            racket2_transform[1][3] = -5;
+        if (racket2_transform[1][3] <= -(7.5 - this.racket_size)) {
+            racket2_transform[1][3] = -(7.5 - this.racket_size);
             this.player2_v = 0;
         }
         racket2_transform = racket2_transform.times(Mat4.scale(1, this.racket_size, 1));
 
         // Ball movement
         let ball_direction = [Math.cos(this.ball_angle), Math.sin(this.ball_angle)]
-        let ball_speed = 0.5; // Increase the speed factor
         let ball_transform = this.ball;
-        ball_transform = ball_transform.times(Mat4.translation(ball_speed * ball_direction[0], ball_speed * ball_direction[1], 0));
+        ball_transform = ball_transform.times(Mat4.translation(this.ball_speed*ball_direction[0], this.ball_speed*ball_direction[1], 0))
 
         // Collision detection preparation
         let ball_center = vec3(ball_transform[0][3], ball_transform[1][3], ball_transform[2][3]);
@@ -159,10 +207,22 @@ export class PhongPong extends Scene {
         let top_AABB = getAABB(vec3(30, 1, 20), vec3(this.top[0][3], this.top[1][3], this.top[2][3]));
         let bottom_AABB = getAABB(vec3(30, 1, 20), vec3(this.bottom[0][3], this.bottom[1][3], this.bottom[2][3]));
 
-        // Racket collision
-        if (intersectSphereAABB(racket1_AABB, ball_center, 1.0) || intersectSphereAABB(racket2_AABB, ball_center, 1.0)) {
-            this.ball_angle = Math.PI - this.ball_angle;
+        // Racket 1 collision
+        if (intersectSphereAABB(racket1_AABB, ball_center, 1.0)) {
+            // Change ball angle by a bigger angle the higher the racket1_v is
+            let angle_change = 0.5 * Math.abs(this.player1_v);
+            if (this.player1_v < 0) angle_change = -angle_change;
+            this.ball_angle = (Math.PI - this.ball_angle + angle_change) % (2 * Math.PI);
         }
+
+        // Racket 2 collision
+        if (intersectSphereAABB(racket2_AABB, ball_center, 1.0)) {
+            // Change ball angle by a bigger angle the higher the racket2_v is
+            let angle_change = 0.5 * Math.abs(this.player2_v);
+            if (this.player2_v < 0) angle_change = -angle_change;
+            this.ball_angle = (Math.PI - this.ball_angle + angle_change) % (2 * Math.PI);
+        }
+
         // Top and bottom collision
         if (intersectSphereAABB(top_AABB, ball_center, 1.0) || intersectSphereAABB(bottom_AABB, ball_center, 1.0)) {
             this.ball_angle = -this.ball_angle;
@@ -171,21 +231,34 @@ export class PhongPong extends Scene {
         // Left collision
         if (intersectSphereAABB(left_AABB, ball_center, 1.0)) {
             console.log("Player 2 wins!")
-            this.render_winner(context, "Player 2 wins!");
-
         }
         // Right collision
         if (intersectSphereAABB(right_AABB, ball_center, 1.0)) {
             console.log("Player 1 wins!")
-            this.render_winner(context, "Player 1 wins!");
-
         }
 
         // Add lights to the scene
         program_state.lights = [
             new Light(vec4(0, 15, -10, 1), color(1, 1, 1, 1), 1000),
-            new Light(vec4(ball_transform[0][3], ball_transform[1][3], 1, 1), color(1, 0, 0, 1), 100)
+            new Light(vec4(ball_transform[0][3], ball_transform[1][3], 1, 1), color(0, 0, 1, 1), 100)
         ];
+
+        // Powerup generation
+        if (t != 0 && t%5 < 0.01 && this.active_powerups.length < 5) {
+            let x = Math.random() * 20 - 10;
+            let y = Math.random() * 5 - 5;
+            let powerup_transform = Mat4.identity().times(Mat4.translation(x, y, 0)).times(Mat4.scale(0.5, 0.5, 0.5));
+            for (let i = 0; i < this.powerups.length; i++) {
+                if (Math.random() < this.powerups[i]["probability"]) {
+                    this.active_powerups.push({
+                        "transform": powerup_transform,
+                        "color": this.powerups[i]["color"],
+                        "type": this.powerups[i]["type"]
+                    });
+                    break;
+                }
+            }
+        }
 
         // Player racket rendering
         this.shapes.racket.draw(context, program_state, racket1_transform, this.materials.green);
@@ -194,6 +267,11 @@ export class PhongPong extends Scene {
         // Ball rendering
         this.shapes.ball.draw(context, program_state, ball_transform, this.materials.yellow);
 
+        this.shapes.background.arrays.texture_coord.forEach((v, i, l) => {
+            v[0] = v[0] * 5;
+            v[1] = v[1] * 5;
+        });
+
         // Background rendering
         this.shapes.background.draw(context, program_state, this.background, this.materials.background);
         this.shapes.background.draw(context, program_state, this.left, this.materials.background);
@@ -201,29 +279,39 @@ export class PhongPong extends Scene {
         this.shapes.background.draw(context, program_state, this.top, this.materials.background);
         this.shapes.background.draw(context, program_state, this.bottom, this.materials.background);
 
+        // Powerups rendering
+        for (let powerup of this.active_powerups) {
+            this.shapes.ball.draw(context, program_state, powerup["transform"], this.materials.blue.override({color: powerup["color"]}));
+        }
+
+        // Powerups collision
+        let old_racket_size = this.racket_size;
+        for (let i = this.active_powerups.length - 1; i >= 0; i--) {
+            let powerup_center = vec3(this.active_powerups[i]["transform"][0][3], this.active_powerups[i]["transform"][1][3], this.active_powerups[i]["transform"][2][3]);
+            if (intersectSphereSphere(powerup_center, 0.5, ball_center, 1.0)) {
+                const powerup_type = this.active_powerups[i]["type"];
+                if (powerup_type == "increase_ball_speed") {
+                    this.ball_speed = 1.5 * this.ball_speed;
+                }
+                else if (powerup_type == "random_ball_angle") {
+                    this.ball_angle = Math.random() * 2 * Math.PI;
+                }
+                else if (powerup_type == "decrease_racket_size") {
+                    this.racket_size = this.racket_size / 1.5;
+                }
+                else if (powerup_type == "increase_racket_speed") {
+                    this.max_v = 1.5 * this.max_v;
+                }
+                this.active_powerups.splice(i, 1);
+                break;
+            }
+        }
+
 
         // Update saved transforms
-        this.racket1 = racket1_transform.times(Mat4.scale(1, 1/this.racket_size, 1));
-        this.racket2 = racket2_transform.times(Mat4.scale(1, 1/this.racket_size, 1));
+        this.racket1 = racket1_transform.times(Mat4.scale(1, 1/old_racket_size, 1));
+        this.racket2 = racket2_transform.times(Mat4.scale(1, 1/old_racket_size, 1));
         this.ball = ball_transform;
-
-        // Reset key presses
-        this.player1_up = false;
-        this.player1_down = false;
-        this.player2_up = false;
-        this.player2_down = false;
-    }
-    render_winner(context, winner) {
-        // Set the clear color to white
-        context.clearColor(1.0, 1.0, 1.0, 1.0);
-        // Clear the color buffer
-        context.clear(context.COLOR_BUFFER_BIT);
-
-        // Render the winner text
-        context.fillStyle = 'black';
-        context.font = '30px Arial';
-        context.textAlign = 'center';
-        context.fillText(`Winner: ${winner}`, context.canvas.width / 2, context.canvas.height / 2);
     }
 }
 
@@ -366,4 +454,4 @@ class Gouraud_Shader extends Shader {
         this.send_material(context, gpu_addresses, material);
         this.send_gpu_state(context, gpu_addresses, gpu_state, model_transform);
     }
-} 
+}
