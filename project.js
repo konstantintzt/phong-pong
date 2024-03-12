@@ -16,7 +16,7 @@ export class PhongPong extends Scene {
             ball: new defs.Subdivision_Sphere(4),
             background: new defs.Cube(),
             tube: new defs.Cube(),
-
+            triangle: new defs.Triangle(),
         };
 
         // Materials
@@ -64,7 +64,6 @@ export class PhongPong extends Scene {
             }
         ]
 
-
         // Scale background texture
         this.shapes.background.arrays.texture_coord.forEach((v, i, l) => {
             v[0] = v[0] * 5;
@@ -73,51 +72,61 @@ export class PhongPong extends Scene {
 
         // Initial scene positions
         this.initial_camera_location = Mat4.look_at(vec3(0, 0, 20), vec3(0, 0, 0), vec3(0, 1, 0));
-        this.racket1 = Mat4.identity().times(Mat4.translation(-12.5, 0, 0)).times(Mat4.scale(0.2, 1, 1));
-        this.racket2 = Mat4.identity().times(Mat4.translation(12.5, 0, 0)).times(Mat4.scale(0.2, 1, 1));
-        this.ball = Mat4.identity()
         this.background = Mat4.identity().times(Mat4.translation(0, 0, -7.5)).times(Mat4.scale(20, 20, 1))
         this.left = Mat4.identity().times(Mat4.translation(-14.5, 0, 0)).times(Mat4.scale(1, 20, 20))
         this.right = Mat4.identity().times(Mat4.translation(14.5, 0, 0)).times(Mat4.scale(1, 20, 20))
         this.top = Mat4.identity().times(Mat4.translation(0, 8.5, 0)).times(Mat4.scale(20, 1, 20))
         this.bottom = Mat4.identity().times(Mat4.translation(0, -8.5, 0)).times(Mat4.scale(20, 1, 20))
+        this.init_params();  // Set ball and racket position/speed
 
-        // Racket movement controls
+        // Game params
+        this.game_over = false;
+        this.start_menu = true;
+        this.p1_score = 0;
+        this.p2_score = 0;
+    }
+
+    init_params() {
+        // reset game parameters
         this.a = 1.2;
         this.max_v = 0.2;
         this.player1_v = 0;
         this.player2_v = 0;
         this.d = 0.95;
-
-        // Key controls
-        this.player1_up = false;
-        this.player1_down = false;
-        this.player2_up = false;
-        this.player2_down = false;
-
-        // Gameplay changers
         this.active_powerups = [];
 
-        // Ball params
+        // reset racket/ball position/speed
+        this.racket1 = Mat4.identity().times(Mat4.translation(-12.5, 0, 0)).times(Mat4.scale(0.2, 1, 1));
+        this.racket2 = Mat4.identity().times(Mat4.translation(12.5, 0, 0)).times(Mat4.scale(0.2, 1, 1));
+        this.ball = Mat4.identity()
         let angle = Math.random() * 2 * Math.PI;
         while ((angle > Math.PI/3 && angle < 2*Math.PI/3) 
             || (angle > 4*Math.PI/3 && angle < 5*Math.PI/3) ) {
             angle = Math.random() * 2 * Math.PI;
         }
-
-        // Game params
+        this.ball_angle = angle;
         this.ball_speed = 0.2;
         this.racket_size = 2.5;
-        this.game_over = false;
-        this.ball_angle = angle;
-        this.start_menu = true;
+
+        // reset racket movement
+        this.player1_up = false;
+        this.player1_down = false;
+        this.player2_up = false;
+        this.player2_down = false;
+        this.goal = false;
     }
 
     make_control_panel() {
         // Draw the scene's buttons, setup their actions and keyboard shortcuts, and monitor live measurements.
-        this.key_triggered_button("Start Game", [" "], () => {
-            this.start_menu = !this.start_menu;
+        this.key_triggered_button("Start/End Game", [" "], () => {
+            if (!this.start_menu) {
+                this.game_over = true;
+            } else {
+                this.start_menu = false;
+            }
+            
         });
+        
         this.new_line();
         this.key_triggered_button("Pause/Resume", ["Escape"], () => {
             if (this.attached !== undefined) {
@@ -166,97 +175,7 @@ export class PhongPong extends Scene {
 
         const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
         if (this.start_menu) {
-            program_state.lights = [
-                new Light(vec4(0, 15, 0, 1), color(1, 1, 1, 1), 1000),
-            ];
-
-            let p_transform = Mat4.identity().times(Mat4.translation(-10,4.5,0)).times(Mat4.scale(0.5,3,0.5))
-            let p_transform2 = Mat4.identity().times(Mat4.translation(-9,7,0)).times(Mat4.scale(1,0.5,0.5))
-            let p_transform3 = Mat4.identity().times(Mat4.translation(-9,5,0)).times(Mat4.scale(1,0.5,0.5))
-            let p_transform4 = Mat4.identity().times(Mat4.translation(-8,6,0)).times(Mat4.scale(0.5,1.5,0.5))
-            let p2_transform = Mat4.identity().times(Mat4.translation(-8,-2.5,0)).times(Mat4.scale(0.5,3,0.5))
-            let p2_transform2 = Mat4.identity().times(Mat4.translation(-7,0,0)).times(Mat4.scale(1,0.5,0.5))
-            let p2_transform3 = Mat4.identity().times(Mat4.translation(-7,-2,0)).times(Mat4.scale(1,0.5,0.5))
-            let p2_transform4 = Mat4.identity().times(Mat4.translation(-6,-1,0)).times(Mat4.scale(0.5,1.5,0.5))
-
-            let h_transform = Mat4.identity().times(Mat4.translation(-6,4.5,0)).times(Mat4.scale(0.5,3,0.5))
-            let h_transform2 = Mat4.identity().times(Mat4.translation(-5,4.5,0)).times(Mat4.scale(1.5,0.5,0.5))
-            let h_transform3 = Mat4.identity().times(Mat4.translation(-4,3,0)).times(Mat4.scale(0.5,1.5,0.5))
-
-            let o_transform = Mat4.identity().times(Mat4.translation(-2,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
-            let o_transform2 = Mat4.identity().times(Mat4.translation(-0.75,4.55,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let o_transform3 = Mat4.identity().times(Mat4.translation(-0.75,2,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let o_transform4 = Mat4.identity().times(Mat4.translation(0.5,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
-            let o2_transform = Mat4.identity().times(Mat4.translation(-4,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
-            let o2_transform2 = Mat4.identity().times(Mat4.translation(-2.75,-2.5,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let o2_transform3 = Mat4.identity().times(Mat4.translation(-2.75,-5,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let o2_transform4 = Mat4.identity().times(Mat4.translation(-1.5,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
-
-            let n_transform = Mat4.identity().times(Mat4.translation(2,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
-            let n_transform2 = Mat4.identity().times(Mat4.translation(3.25,4.55,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let n_transform3 = Mat4.identity().times(Mat4.translation(4.5,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
-            let n2_transform = Mat4.identity().times(Mat4.translation(0,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
-            let n2_transform2 = Mat4.identity().times(Mat4.translation(1.25,-2.5,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let n2_transform3 = Mat4.identity().times(Mat4.translation(2.5,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
-
-            let g_transform = Mat4.identity().times(Mat4.translation(6,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
-            let g_transform2 = Mat4.identity().times(Mat4.translation(7.25,4.55,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let g_transform3 = Mat4.identity().times(Mat4.translation(7.25,2,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let g_transform4 = Mat4.identity().times(Mat4.translation(8.5,2,0)).times(Mat4.scale(0.5,3,0.5))
-            let g_transform5 = Mat4.identity().times(Mat4.translation(7.25,-0.5,0)).times(Mat4.scale(1.75,0.5,0.5))
-
-            let g2_transform = Mat4.identity().times(Mat4.translation(4,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
-            let g2_transform2 = Mat4.identity().times(Mat4.translation(5.25,-2.5,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let g2_transform3 = Mat4.identity().times(Mat4.translation(5.25,-5,0)).times(Mat4.scale(1.75,0.5,0.5))
-            let g2_transform4 = Mat4.identity().times(Mat4.translation(6.5,-5,0)).times(Mat4.scale(0.5,3,0.5))
-            let g2_transform5 = Mat4.identity().times(Mat4.translation(5.25,-7.5,0)).times(Mat4.scale(1.75,0.5,0.5))
-
-            // Phong
-            this.shapes.tube.draw(context, program_state, p_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, p_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, p_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, p_transform4, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, h_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, h_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, h_transform3, this.materials.textured_emerald);
-            
-            this.shapes.tube.draw(context, program_state, o_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, o_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, o_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, o_transform4, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, n_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, n_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, n_transform3, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, g_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, g_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, g_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, g_transform4, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, g_transform5, this.materials.textured_emerald);
-
-            // Pong
-            this.shapes.tube.draw(context, program_state, p2_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, p2_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, p2_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, p2_transform4, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, o2_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, o2_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, o2_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, o2_transform4, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, n2_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, n2_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, n2_transform3, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, g2_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, g2_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, g2_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, g2_transform4, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, g2_transform5, this.materials.textured_emerald);
-
+            this.draw_start_menu(context, program_state);
             return;
         }
 
@@ -265,70 +184,33 @@ export class PhongPong extends Scene {
             program_state.lights = [
                 new Light(vec4(0, 15, 0, 1), color(1, 1, 1, 1), 1000),
             ];
-            let p_transform = Mat4.identity().times(Mat4.translation(-10,0.5,0)).times(Mat4.scale(0.5,3,0.5))
-            let p_transform2 = Mat4.identity().times(Mat4.translation(-9,3,0)).times(Mat4.scale(1,0.5,0.5))
-            let p_transform3 = Mat4.identity().times(Mat4.translation(-9,1,0)).times(Mat4.scale(1,0.5,0.5))
-            let p_transform4 = Mat4.identity().times(Mat4.translation(-8,2,0)).times(Mat4.scale(0.5,1.5,0.5))
+            let play_transform = Mat4.identity().times(Mat4.translation(6,0,0)).times(Mat4.scale(1.5,1,1)).times(Mat4.rotation(3*Math.PI/4,0,0,1)).times(Mat4.scale(3,3,1));
+            let left_transform = Mat4.identity().times(Mat4.translation(-5,0,0)).times(Mat4.scale(0.5,2,1));
+            let right_transform = Mat4.identity().times(Mat4.translation(-3,0,0)).times(Mat4.scale(0.5,2,1));
+            let slant_transform = Mat4.identity().times(Mat4.rotation(-Math.PI/8,0,0,1)).times(Mat4.scale(0.5,4,1));
+            let slant_transform2 = Mat4.identity().times(Mat4.translation(2.7,0,0)).times(Mat4.scale(0.05,2,1));
 
-            let a_transform = Mat4.identity().times(Mat4.translation(-6,-2,0)).times(Mat4.scale(1,0.5,0.5))
-            let a_transform2 = Mat4.identity().times(Mat4.translation(-6,0,0)).times(Mat4.scale(1,0.5,0.5))
-            let a_transform3 = Mat4.identity().times(Mat4.translation(-7,-1,0)).times(Mat4.scale(0.5,1,0.5))
-            let a_transform4 = Mat4.identity().times(Mat4.translation(-5,-1,0)).times(Mat4.scale(0.5,1,0.5))
-            let a_transform5 = Mat4.identity().times(Mat4.translation(-4.5,-1,0)).times(Mat4.rotation(-2.5,0,0,1)).times(Mat4.scale(0.5,1.5,0.5))
-
-            let u_transform = Mat4.identity().times(Mat4.translation(-2,-1,0)).times(Mat4.scale(0.5,1,0.5))
-            let u_transform2 = Mat4.identity().times(Mat4.translation(0,-1,0)).times(Mat4.scale(0.5,1,0.5))
-            let u_transform3 = Mat4.identity().times(Mat4.translation(-1,-2,0)).times(Mat4.scale(1,0.5,0.5))
-
-            let s_transform = Mat4.identity().times(Mat4.translation(2,0,0)).times(Mat4.rotation(2,0,0,1)).times(Mat4.scale(0.5,1,0.5))
-            let s_transform2 = Mat4.identity().times(Mat4.translation(2,-1.75,0)).times(Mat4.rotation(2,0,0,1)).times(Mat4.scale(0.5,1,0.5))
-            let s_transform3 = Mat4.identity().times(Mat4.translation(2,-1,0)).times(Mat4.rotation(1,0,0,1)).times(Mat4.scale(0.5,1,0.5))
-
-            let e_transform = Mat4.identity().times(Mat4.translation(4,-1,0)).times(Mat4.scale(0.5,1.5,0.5))
-            let e_transform2 = Mat4.identity().times(Mat4.translation(4.5,0.1,0)).times(Mat4.scale(1,0.4,0.5))
-            let e_transform3 = Mat4.identity().times(Mat4.translation(4.5,-1,0)).times(Mat4.scale(1,0.4,0.5))
-            let e_transform4 = Mat4.identity().times(Mat4.translation(5.5,-0.45,0)).times(Mat4.scale(0.4,0.95,0.5))
-            let e_transform5 = Mat4.identity().times(Mat4.translation(4.8,-2.1,0)).times(Mat4.scale(1,0.4,0.5))
-
-            let d_transform = Mat4.identity().times(Mat4.translation(8,-2,0)).times(Mat4.scale(1,0.5,0.5))
-            let d_transform2 = Mat4.identity().times(Mat4.translation(8,0,0)).times(Mat4.scale(1,0.5,0.5))
-            let d_transform3 = Mat4.identity().times(Mat4.translation(7,-1,0)).times(Mat4.scale(0.5,1,0.5))
-            let d_transform4 = Mat4.identity().times(Mat4.translation(9,-0.5,0)).times(Mat4.scale(0.5,2,0.5))
-            
-            
-            this.shapes.tube.draw(context, program_state, p_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, p_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, p_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, p_transform4, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, a_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, a_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, a_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, a_transform4, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, a_transform5, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, u_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, u_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, u_transform3, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, s_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, s_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, s_transform3, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, e_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, e_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, e_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, e_transform4, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, e_transform5, this.materials.textured_emerald);
-
-            this.shapes.tube.draw(context, program_state, d_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, d_transform2, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, d_transform3, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, d_transform4, this.materials.textured_emerald);
+            this.shapes.triangle.draw(context, program_state, play_transform, this.materials.textured_emerald);
+            this.shapes.tube.draw(context, program_state, left_transform, this.materials.textured_emerald);
+            this.shapes.tube.draw(context, program_state, right_transform, this.materials.textured_emerald);
+            this.shapes.tube.draw(context, program_state, slant_transform, this.materials.textured_emerald);
+            this.shapes.tube.draw(context, program_state, slant_transform2, this.materials.textured_emerald);
             return;
         }
         if (this.game_over) {
             // Display game over message or perform any other actions needed
+            if (this.p1_score > this.p2_score) {
+                alert("Player 1 Wins!");
+            } else if (this.p1_score == this.p2_score) {
+                alert("Tie Game!")
+            } else {
+                alert("Player 2 Wins!")
+            }
+            this.p1_score = 0;
+            this.p2_score = 0;
+            this.start_menu = true;
+            this.game_over = false;
+            this.init_params();
             return;
         }
         this.player1_v *= this.d;
@@ -428,18 +310,16 @@ export class PhongPong extends Scene {
 
         // Left collision
         if (intersectSphereAABB(left_AABB, ball_center, 1.0)) {
-            console.log("Player 2 wins!");
-            this.game_over = true;
-            alert("Player 2 wins!")
-            return;
+            this.p2_score += 1;
+            this.goal = true;
+            alert(`Score: ${this.p1_score} : ${this.p2_score}`)
 
         }
         // Right collision
         if (intersectSphereAABB(right_AABB, ball_center, 1.0)) {
-            console.log("Player 1 wins!");
-            this.game_over = true;
-            alert("Player 1 wins!")
-            return;
+            this.p1_score += 1;
+            this.goal = true;
+            alert(`Score: ${this.p1_score} : ${this.p2_score}`)
 
         }
 
@@ -504,7 +384,7 @@ export class PhongPong extends Scene {
                     this.ball_angle = angle;
                 }
                 else if (powerup_type == "decrease_racket_size") {
-                    this.racket_size = this.racket_size / 1.5;
+                    this.racket_size = Math.max(0.5, this.racket_size / 1.5);
                 }
                 else if (powerup_type == "increase_racket_speed") {
                     this.max_v = 1.5 * this.max_v;
@@ -514,12 +394,111 @@ export class PhongPong extends Scene {
             }
         }
 
-
         // Update saved transforms
-        this.racket1 = racket1_transform.times(Mat4.scale(1, 1/old_racket_size, 1));
-        this.racket2 = racket2_transform.times(Mat4.scale(1, 1/old_racket_size, 1));
-        this.ball = ball_transform;
+        if (this.goal) {
+            // init ball/racket locations
+            this.init_params();
 
+        } else {
+            this.racket1 = racket1_transform.times(Mat4.scale(1, 1/old_racket_size, 1));
+            this.racket2 = racket2_transform.times(Mat4.scale(1, 1/old_racket_size, 1));
+            this.ball = ball_transform;
+        }
+        
+
+    }
+
+    draw_start_menu(context, program_state) {
+        program_state.lights = [
+            new Light(vec4(0, 15, 0, 1), color(1, 1, 1, 1), 1000),
+        ];
+
+        let p_transform = Mat4.identity().times(Mat4.translation(-10,4.5,0)).times(Mat4.scale(0.5,3,0.5))
+        let p_transform2 = Mat4.identity().times(Mat4.translation(-9,7,0)).times(Mat4.scale(1,0.5,0.5))
+        let p_transform3 = Mat4.identity().times(Mat4.translation(-9,5,0)).times(Mat4.scale(1,0.5,0.5))
+        let p_transform4 = Mat4.identity().times(Mat4.translation(-8,6,0)).times(Mat4.scale(0.5,1.5,0.5))
+        let p2_transform = Mat4.identity().times(Mat4.translation(-8,-2.5,0)).times(Mat4.scale(0.5,3,0.5))
+        let p2_transform2 = Mat4.identity().times(Mat4.translation(-7,0,0)).times(Mat4.scale(1,0.5,0.5))
+        let p2_transform3 = Mat4.identity().times(Mat4.translation(-7,-2,0)).times(Mat4.scale(1,0.5,0.5))
+        let p2_transform4 = Mat4.identity().times(Mat4.translation(-6,-1,0)).times(Mat4.scale(0.5,1.5,0.5))
+
+        let h_transform = Mat4.identity().times(Mat4.translation(-6,4.5,0)).times(Mat4.scale(0.5,3,0.5))
+        let h_transform2 = Mat4.identity().times(Mat4.translation(-5,4.5,0)).times(Mat4.scale(1.5,0.5,0.5))
+        let h_transform3 = Mat4.identity().times(Mat4.translation(-4,3,0)).times(Mat4.scale(0.5,1.5,0.5))
+
+        let o_transform = Mat4.identity().times(Mat4.translation(-2,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
+        let o_transform2 = Mat4.identity().times(Mat4.translation(-0.75,4.55,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let o_transform3 = Mat4.identity().times(Mat4.translation(-0.75,2,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let o_transform4 = Mat4.identity().times(Mat4.translation(0.5,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
+        let o2_transform = Mat4.identity().times(Mat4.translation(-4,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
+        let o2_transform2 = Mat4.identity().times(Mat4.translation(-2.75,-2.5,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let o2_transform3 = Mat4.identity().times(Mat4.translation(-2.75,-5,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let o2_transform4 = Mat4.identity().times(Mat4.translation(-1.5,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
+
+        let n_transform = Mat4.identity().times(Mat4.translation(2,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
+        let n_transform2 = Mat4.identity().times(Mat4.translation(3.25,4.55,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let n_transform3 = Mat4.identity().times(Mat4.translation(4.5,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
+        let n2_transform = Mat4.identity().times(Mat4.translation(0,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
+        let n2_transform2 = Mat4.identity().times(Mat4.translation(1.25,-2.5,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let n2_transform3 = Mat4.identity().times(Mat4.translation(2.5,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
+
+        let g_transform = Mat4.identity().times(Mat4.translation(6,3.3,0)).times(Mat4.scale(0.5,1.75,0.5))
+        let g_transform2 = Mat4.identity().times(Mat4.translation(7.25,4.55,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let g_transform3 = Mat4.identity().times(Mat4.translation(7.25,2,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let g_transform4 = Mat4.identity().times(Mat4.translation(8.5,2,0)).times(Mat4.scale(0.5,3,0.5))
+        let g_transform5 = Mat4.identity().times(Mat4.translation(7.25,-0.5,0)).times(Mat4.scale(1.75,0.5,0.5))
+
+        let g2_transform = Mat4.identity().times(Mat4.translation(4,-3.75,0)).times(Mat4.scale(0.5,1.75,0.5))
+        let g2_transform2 = Mat4.identity().times(Mat4.translation(5.25,-2.5,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let g2_transform3 = Mat4.identity().times(Mat4.translation(5.25,-5,0)).times(Mat4.scale(1.75,0.5,0.5))
+        let g2_transform4 = Mat4.identity().times(Mat4.translation(6.5,-5,0)).times(Mat4.scale(0.5,3,0.5))
+        let g2_transform5 = Mat4.identity().times(Mat4.translation(5.25,-7.5,0)).times(Mat4.scale(1.75,0.5,0.5))
+
+        // Phong
+        this.shapes.tube.draw(context, program_state, p_transform, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, p_transform2, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, p_transform3, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, p_transform4, this.materials.textured_emerald);
+
+        this.shapes.tube.draw(context, program_state, h_transform, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, h_transform2, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, h_transform3, this.materials.textured_emerald);
+        
+        this.shapes.tube.draw(context, program_state, o_transform, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, o_transform2, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, o_transform3, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, o_transform4, this.materials.textured_emerald);
+
+        this.shapes.tube.draw(context, program_state, n_transform, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, n_transform2, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, n_transform3, this.materials.textured_emerald);
+
+        this.shapes.tube.draw(context, program_state, g_transform, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, g_transform2, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, g_transform3, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, g_transform4, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, g_transform5, this.materials.textured_emerald);
+
+        // Pong
+        this.shapes.tube.draw(context, program_state, p2_transform, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, p2_transform2, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, p2_transform3, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, p2_transform4, this.materials.textured_emerald);
+
+        this.shapes.tube.draw(context, program_state, o2_transform, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, o2_transform2, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, o2_transform3, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, o2_transform4, this.materials.textured_emerald);
+
+        this.shapes.tube.draw(context, program_state, n2_transform, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, n2_transform2, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, n2_transform3, this.materials.textured_emerald);
+
+        this.shapes.tube.draw(context, program_state, g2_transform, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, g2_transform2, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, g2_transform3, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, g2_transform4, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, g2_transform5, this.materials.textured_emerald);
     }
 }
 
