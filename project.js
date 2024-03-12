@@ -25,8 +25,10 @@ export class PhongPong extends Scene {
             red: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FF0000")}),
             green: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#00FF00")}),
             blue: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#0000FF")}),
+            white: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .8, color: hex_color("#FFFFFF")}),
             textured_gold: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: .8, diffusivity: .5, texture: new Texture('assets/gold_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
             textured_ruby: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: .8, diffusivity: .5, texture: new Texture('assets/ruby_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
+            textured_gray: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: .8, diffusivity: .5, texture: new Texture('assets/gray_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
             textured_emerald: new Material(new Textured_Phong(), {color: hex_color("000000"), ambient: .8, diffusivity: .5, texture: new Texture('assets/emerald_texture.jpg', 'LINEAR_MIPMAP_LINEAR')}),
 
             background: new Material(new defs.Phong_Shader(), {ambient: .5, diffusivity: .5, color: hex_color("#FFFFFF")}),
@@ -136,6 +138,16 @@ export class PhongPong extends Scene {
             }
         });
         this.new_line();
+        this.key_triggered_button("Release Ball", ["g"], () => {
+            if (!this.ball_in_motion) {
+                this.start_menu = false; // Start the game if it's not started yet
+            } else {
+                // Release the ball if the game is already started
+                this.ball = Mat4.identity();
+                this.attached = false;
+            }
+        });
+        this.new_line();
         this.key_triggered_button("Player 1 UP", ["w"], () => {
             this.player1_up = true;
             this.player1_down = false;
@@ -191,16 +203,17 @@ export class PhongPong extends Scene {
             let slant_transform2 = Mat4.identity().times(Mat4.translation(2.7,0,0)).times(Mat4.scale(0.05,2,1));
 
             this.shapes.triangle.draw(context, program_state, play_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, left_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, right_transform, this.materials.textured_emerald);
-            this.shapes.tube.draw(context, program_state, slant_transform, this.materials.textured_emerald);
+            this.shapes.tube.draw(context, program_state, left_transform, this.materials.textured_ruby);
+            this.shapes.tube.draw(context, program_state, right_transform, this.materials.textured_ruby);
+            this.shapes.tube.draw(context, program_state, slant_transform, this.materials.textured_gray);
             this.shapes.tube.draw(context, program_state, slant_transform2, this.materials.textured_emerald);
             return;
         }
         if (this.game_over) {
             // Display game over message or perform any other actions needed
             if (this.p1_score > this.p2_score) {
-                alert("Player 1 Wins!");
+                alert("Player 1 Wins!")
+                return;
             } else if (this.p1_score == this.p2_score) {
                 alert("Tie Game!")
             } else {
@@ -290,7 +303,7 @@ export class PhongPong extends Scene {
             let angle_change = 0.5 * Math.abs(this.player1_v);
             if (this.player1_v < 0) angle_change = -angle_change;
             this.ball_angle = (Math.PI - this.ball_angle + angle_change) % (2 * Math.PI);
-        } else 
+        } else
 
         // Racket 2 collision
         if (intersectSphereAABB(racket2_AABB, ball_center, 1.0) == 2) {
@@ -302,7 +315,7 @@ export class PhongPong extends Scene {
             if (this.player2_v < 0) angle_change = -angle_change;
             this.ball_angle = (Math.PI - this.ball_angle + angle_change) % (2 * Math.PI);
         }
-        
+
         // Top and bottom collision
         if (intersectSphereAABB(top_AABB, ball_center, 1.0) || intersectSphereAABB(bottom_AABB, ball_center, 1.0)) {
             this.ball_angle = -this.ball_angle;
@@ -410,7 +423,7 @@ export class PhongPong extends Scene {
 
     draw_start_menu(context, program_state) {
         program_state.lights = [
-            new Light(vec4(0, 15, 0, 1), color(1, 1, 1, 1), 1000),
+            new Light(vec4(20, 20, 0, 1), color(1, 1, 1, 1), 1200),
         ];
 
         let p_transform = Mat4.identity().times(Mat4.translation(-10,4.5,0)).times(Mat4.scale(0.5,3,0.5))
@@ -454,6 +467,8 @@ export class PhongPong extends Scene {
         let g2_transform4 = Mat4.identity().times(Mat4.translation(6.5,-5,0)).times(Mat4.scale(0.5,3,0.5))
         let g2_transform5 = Mat4.identity().times(Mat4.translation(5.25,-7.5,0)).times(Mat4.scale(1.75,0.5,0.5))
 
+
+
         // Phong
         this.shapes.tube.draw(context, program_state, p_transform, this.materials.textured_emerald);
         this.shapes.tube.draw(context, program_state, p_transform2, this.materials.textured_emerald);
@@ -463,7 +478,7 @@ export class PhongPong extends Scene {
         this.shapes.tube.draw(context, program_state, h_transform, this.materials.textured_emerald);
         this.shapes.tube.draw(context, program_state, h_transform2, this.materials.textured_emerald);
         this.shapes.tube.draw(context, program_state, h_transform3, this.materials.textured_emerald);
-        
+
         this.shapes.tube.draw(context, program_state, o_transform, this.materials.textured_emerald);
         this.shapes.tube.draw(context, program_state, o_transform2, this.materials.textured_emerald);
         this.shapes.tube.draw(context, program_state, o_transform3, this.materials.textured_emerald);
@@ -480,26 +495,27 @@ export class PhongPong extends Scene {
         this.shapes.tube.draw(context, program_state, g_transform5, this.materials.textured_emerald);
 
         // Pong
-        this.shapes.tube.draw(context, program_state, p2_transform, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, p2_transform2, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, p2_transform3, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, p2_transform4, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, p2_transform, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, p2_transform2, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, p2_transform3, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, p2_transform4, this.materials.textured_ruby);
 
-        this.shapes.tube.draw(context, program_state, o2_transform, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, o2_transform2, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, o2_transform3, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, o2_transform4, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, o2_transform, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, o2_transform2, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, o2_transform3, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, o2_transform4, this.materials.textured_ruby);
 
-        this.shapes.tube.draw(context, program_state, n2_transform, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, n2_transform2, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, n2_transform3, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, n2_transform, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, n2_transform2, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, n2_transform3, this.materials.textured_ruby);
 
-        this.shapes.tube.draw(context, program_state, g2_transform, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, g2_transform2, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, g2_transform3, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, g2_transform4, this.materials.textured_emerald);
-        this.shapes.tube.draw(context, program_state, g2_transform5, this.materials.textured_emerald);
+        this.shapes.tube.draw(context, program_state, g2_transform, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, g2_transform2, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, g2_transform3, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, g2_transform4, this.materials.textured_ruby);
+        this.shapes.tube.draw(context, program_state, g2_transform5, this.materials.textured_ruby);
     }
+
 }
 
 class Gouraud_Shader extends Shader {
