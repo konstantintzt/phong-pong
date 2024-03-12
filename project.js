@@ -62,12 +62,19 @@ export class PhongPong extends Scene {
             }
         ]
 
+
+        // Scale background texture
+        this.shapes.background.arrays.texture_coord.forEach((v, i, l) => {
+            v[0] = v[0] * 5;
+            v[1] = v[1] * 5;
+        });
+
         // Initial scene positions
         this.initial_camera_location = Mat4.look_at(vec3(0, 0, 20), vec3(0, 0, 0), vec3(0, 1, 0));
-        this.racket1 = Mat4.identity().times(Mat4.translation(-12, 0, 0))
-        this.racket2 = Mat4.identity().times(Mat4.translation(12, 0, 0))
+        this.racket1 = Mat4.identity().times(Mat4.translation(-12.5, 0, 0)).times(Mat4.scale(0.2, 1, 1));
+        this.racket2 = Mat4.identity().times(Mat4.translation(12.5, 0, 0)).times(Mat4.scale(0.2, 1, 1));
         this.ball = Mat4.identity()
-        this.background = Mat4.identity().times(Mat4.scale(20, 20, 1)).times(Mat4.translation(0, 0, -7.5))
+        this.background = Mat4.identity().times(Mat4.translation(0, 0, -7.5)).times(Mat4.scale(20, 20, 1))
         this.left = Mat4.identity().times(Mat4.translation(-14.5, 0, 0)).times(Mat4.scale(1, 20, 20))
         this.right = Mat4.identity().times(Mat4.translation(14.5, 0, 0)).times(Mat4.scale(1, 20, 20))
         this.top = Mat4.identity().times(Mat4.translation(0, 8.5, 0)).times(Mat4.scale(20, 1, 20))
@@ -89,11 +96,18 @@ export class PhongPong extends Scene {
         // Gameplay changers
         this.active_powerups = [];
 
+        // Ball params
+        let angle = Math.random() * 2 * Math.PI;
+        while ((angle > Math.PI/3 && angle < 2*Math.PI/3) 
+            || (angle > 4*Math.PI/3 && angle < 5*Math.PI/3) ) {
+            angle = Math.random() * 2 * Math.PI;
+        }
+
         // Game params
-        this.ball_angle = Math.random() * 2 * Math.PI;
         this.ball_speed = 0.2;
         this.racket_size = 2.5;
         this.game_over = false;
+        this.ball_angle = angle;
 
     }
 
@@ -142,8 +156,7 @@ export class PhongPong extends Scene {
     display(context, program_state) {
         // Initial camera setup
         program_state.set_camera(this.initial_camera_location);
-        program_state.projection_transform = Mat4.perspective(
-            Math.PI / 4, context.width / context.height, .1, 1000);
+        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, .1, 1000);
 
         const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
 
@@ -216,8 +229,8 @@ export class PhongPong extends Scene {
 
         // Collision detection preparation
         let ball_center = vec3(ball_transform[0][3], ball_transform[1][3], ball_transform[2][3]);
-        let racket1_AABB = getAABB(vec3(1, this.racket_size, 1), vec3(racket1_transform[0][3], racket1_transform[1][3], racket1_transform[2][3]));
-        let racket2_AABB = getAABB(vec3(1, this.racket_size, 1), vec3(racket2_transform[0][3], racket2_transform[1][3], racket2_transform[2][3]));
+        let racket1_AABB = getAABB(vec3(0.2, this.racket_size, 1), vec3(racket1_transform[0][3], racket1_transform[1][3], racket1_transform[2][3]));
+        let racket2_AABB = getAABB(vec3(0.2, this.racket_size, 1), vec3(racket2_transform[0][3], racket2_transform[1][3], racket2_transform[2][3]));
         let background_AABB = getAABB(vec3(20, 20, 1), vec3(this.background[0][3], this.background[1][3], this.background[2][3]));
         let left_AABB = getAABB(vec3(1, 20, 20), vec3(this.left[0][3], this.left[1][3], this.left[2][3]));
         let right_AABB = getAABB(vec3(1, 20, 20), vec3(this.right[0][3], this.right[1][3], this.right[2][3]));
@@ -225,21 +238,27 @@ export class PhongPong extends Scene {
         let bottom_AABB = getAABB(vec3(30, 1, 20), vec3(this.bottom[0][3], this.bottom[1][3], this.bottom[2][3]));
 
         // Racket 1 collision
-        if (intersectSphereAABB(racket1_AABB, ball_center, 1.0)) {
-            // Change ball angle by a bigger angle the higher the racket1_v is
+        if (intersectSphereAABB(racket1_AABB, ball_center, 1.0) == 2) {
+            // Collision with a top/bottom face
+            // this.ball_angle = -this.ball_angle;
+        } else if (intersectSphereAABB(racket1_AABB, ball_center, 1.0) == 1) {
+            // Collision with a side face
             let angle_change = 0.5 * Math.abs(this.player1_v);
             if (this.player1_v < 0) angle_change = -angle_change;
             this.ball_angle = (Math.PI - this.ball_angle + angle_change) % (2 * Math.PI);
-        }
+        } else 
 
         // Racket 2 collision
-        if (intersectSphereAABB(racket2_AABB, ball_center, 1.0)) {
-            // Change ball angle by a bigger angle the higher the racket2_v is
+        if (intersectSphereAABB(racket2_AABB, ball_center, 1.0) == 2) {
+            // Collision with a top/bottom face
+            // this.ball_angle = -this.ball_angle;
+        } else if (intersectSphereAABB(racket2_AABB, ball_center, 1.0) == 1) {
+            // Collision with a side face
             let angle_change = 0.5 * Math.abs(this.player2_v);
             if (this.player2_v < 0) angle_change = -angle_change;
             this.ball_angle = (Math.PI - this.ball_angle + angle_change) % (2 * Math.PI);
         }
-
+        
         // Top and bottom collision
         if (intersectSphereAABB(top_AABB, ball_center, 1.0) || intersectSphereAABB(bottom_AABB, ball_center, 1.0)) {
             this.ball_angle = -this.ball_angle;
@@ -265,7 +284,7 @@ export class PhongPong extends Scene {
         // Add lights to the scene
         program_state.lights = [
             new Light(vec4(0, 15, 0, 1), color(1, 1, 1, 1), 1000),
-            new Light(vec4(ball_transform[0][3], ball_transform[1][3], -5, 1), color(0, 0, 1, 1), 100)
+            new Light(vec4(ball_transform[0][3], ball_transform[1][3], 0, 1), color(1, 1, 0, 1), 100)
         ];
 
         // Powerup generation
@@ -293,11 +312,6 @@ export class PhongPong extends Scene {
         this.shapes.ball.draw(context, program_state, ball_transform, this.materials.textured_gold);
         this.shapes.ball.arrays.texture_coord = this.shapes.ball.arrays.position;
 
-        this.shapes.background.arrays.texture_coord.forEach((v, i, l) => {
-            v[0] = v[0] * 5;
-            v[1] = v[1] * 5;
-        });
-
         // Background rendering
         this.shapes.background.draw(context, program_state, this.background, this.materials.normal_background);
         this.shapes.background.draw(context, program_state, this.left, this.materials.normal_background);
@@ -320,7 +334,12 @@ export class PhongPong extends Scene {
                     this.ball_speed = 1.5 * this.ball_speed;
                 }
                 else if (powerup_type == "random_ball_angle") {
-                    this.ball_angle = Math.random() * 2 * Math.PI;
+                    let angle = Math.random() * 2 * Math.PI;
+                    while ((angle > Math.PI/3 && angle < 2*Math.PI/3) 
+                        || (angle > 4*Math.PI/3 && angle < 5*Math.PI/3) ) {
+                        angle = Math.random() * 2 * Math.PI;
+                    }
+                    this.ball_angle = angle;
                 }
                 else if (powerup_type == "decrease_racket_size") {
                     this.racket_size = this.racket_size / 1.5;

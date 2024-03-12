@@ -23,6 +23,8 @@ export function getAABB(scale, center) {
 }
 
 // Function to check if AABB and sphere are colliding
+// Returns 1 if the collision is with a side face, 2 if the collision is with a top/bottom face
+// Returns 0 if there is no collision
 export function intersectSphereAABB(AABB, sphereCenter, sphereRadius) {
 
     // Get the closest point to the sphere
@@ -33,7 +35,27 @@ export function intersectSphereAABB(AABB, sphereCenter, sphereRadius) {
     );
 
     // Check if the closest point is inside the sphere
-    return pointInSphere(closestPoint, sphereCenter, sphereRadius);
+    // return pointInSphere(closestPoint, sphereCenter, sphereRadius);
+
+    const dist = Math.sqrt(
+        (closestPoint[0] - sphereCenter[0]) * (closestPoint[0] - sphereCenter[0]) +
+        (closestPoint[1] - sphereCenter[1]) * (closestPoint[1] - sphereCenter[1]) +
+        (closestPoint[2] - sphereCenter[2]) * (closestPoint[2] - sphereCenter[2])
+    );
+
+    if (dist < sphereRadius) {
+        let deltaX = Math.abs(sphereCenter[0] - closestPoint[0]);
+        let deltaY = Math.abs(sphereCenter[1] - closestPoint[1]);
+        let deltaZ = Math.abs(sphereCenter[2] - closestPoint[2]);
+
+        if (deltaY > deltaX && deltaY > deltaZ) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    return 0;
 
 }
 
